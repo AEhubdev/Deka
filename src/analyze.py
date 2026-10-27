@@ -46,8 +46,10 @@ def calculate(nav: pd.Series) -> tuple[dict, pd.Series, pd.Series, pd.Series]:
     wealth = nav / nav.iloc[0]
     drawdown = wealth / wealth.cummax() - 1
     ytd = nav.iloc[-1] / nav.iloc[0] - 1
+    elapsed_years = (nav.index[-1] - nav.index[0]).days / 365.25
+    cagr = (nav.iloc[-1] / nav.iloc[0]) ** (1 / elapsed_years) - 1 if elapsed_years > 0 else np.nan
     vol = daily.std(ddof=1) * np.sqrt(TRADING_DAYS)
-    downside = daily[daily < 0].std(ddof=1) * np.sqrt(TRADING_DAYS)
+    downside = np.sqrt(np.square(np.minimum(daily - RISK_FREE / TRADING_DAYS, 0)).mean() * TRADING_DAYS)
     q05 = daily.quantile(.05)
     expected_shortfall = daily[daily <= q05].mean()
     dd_end = drawdown.idxmin()
@@ -58,7 +60,7 @@ def calculate(nav: pd.Series) -> tuple[dict, pd.Series, pd.Series, pd.Series]:
         "fund": FUND, "isin": ISIN, "start_date": nav.index[0].date().isoformat(),
         "end_date": nav.index[-1].date().isoformat(), "observations": int(len(nav)),
         "base_nav_eur": float(nav.iloc[0]), "latest_nav_eur": float(nav.iloc[-1]),
-        "ytd_price_return": float(ytd), "annualized_volatility": float(vol),
+        "ytd_price_return": float(ytd), "annualized_compound_return": float(cagr), "annualized_volatility": float(vol),
         "annualized_downside_deviation": float(downside),
         "sharpe_ratio_rf_0": float((daily.mean() * TRADING_DAYS - RISK_FREE) / vol) if vol else None,
         "sortino_ratio_rf_0": float((daily.mean() * TRADING_DAYS - RISK_FREE) / downside) if downside and pd.notna(downside) else None,
@@ -77,7 +79,10 @@ def calculate(nav: pd.Series) -> tuple[dict, pd.Series, pd.Series, pd.Series]:
 
 
 def monthly_returns(nav: pd.Series) -> pd.Series:
-    return nav.resample("ME").last().pct_change().dropna()
+    month_ends = nav.resample("ME").last().dropna()
+    points = pd.concat([nav.iloc[:1], month_ends]).sort_index()
+    points = points[~points.index.duplicated(keep="last")]
+    return points.pct_change().dropna()
 
 
 def make_dashboard(nav: pd.Series, m: dict, daily: pd.Series, wealth: pd.Series, dd: pd.Series, benchmark: pd.Series | None) -> None:
@@ -143,6 +148,7 @@ def make_pdf(nav: pd.Series, m: dict, daily: pd.Series, wealth: pd.Series, dd: p
     rows = [
         ["Kennzahl", "Ergebnis", "Lesart"],
         ["NAV-Preisrendite (seit 30.12.2025)", pct(m["ytd_price_return"]), "Ohne Ausschüttungsbereinigung"],
+        ["Annualisierte geometrische Preisrendite", pct(m["annualized_compound_return"]), "Hochrechnung aus 274 Kalendertagen"],
         ["Annualisierte Volatilität", pct(m["annualized_volatility"]), "Tägliche NAV-Renditen × √252"],
         ["Annualisierte Downside-Abweichung", pct(m["annualized_downside_deviation"]), "Nur negative Tagesrenditen"],
         ["Sharpe Ratio (Rf = 0%)", f"{m['sharpe_ratio_rf_0']:.2f}" if m["sharpe_ratio_rf_0"] is not None else "n/a", "Indicative, annualisiert"],
