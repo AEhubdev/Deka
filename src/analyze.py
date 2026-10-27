@@ -111,7 +111,7 @@ def make_dashboard(nav: pd.Series, m: dict, daily: pd.Series, wealth: pd.Series,
 
 
 def chart(values: pd.Series, title: str, color: colors.Color, percent: bool = False) -> Drawing:
-    w, h = 510, 160
+    w, h = 510, 128
     d = Drawing(w, h)
     d.add(String(0, h-14, title, fontName="Helvetica-Bold", fontSize=9, fillColor=colors.HexColor("#263746")))
     left, right, bottom, top = 36, w-8, 22, h-28
@@ -165,7 +165,7 @@ def make_pdf(nav: pd.Series, m: dict, daily: pd.Series, wealth: pd.Series, dd: p
                            ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F2F5F7")]),
                            ("GRID",(0,0),(-1,-1),.25,colors.HexColor("#D2DAE0")),("VALIGN",(0,0),(-1,-1),"MIDDLE"),
                            ("LEFTPADDING",(0,0),(-1,-1),6),("RIGHTPADDING",(0,0),(-1,-1),6),
-                           ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
+                           ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3)]))
     story += [t, Spacer(1, 5*mm), chart(wealth*100, "NAV-Entwicklung (Start = 100)", colors.HexColor("#174A7E")), Spacer(1, 3*mm), chart(dd, "Drawdown vom bisherigen Hoch", colors.HexColor("#B24745"), True)]
     if benchmark is not None:
         story.append(Paragraph("Benchmark: verfügbare Benchmark-Reihe separat eingelesen; interaktive relative Rendite im Dashboard.", styles["Small"]))
@@ -205,3 +205,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
